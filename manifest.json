@@ -31,13 +31,13 @@
   "commands": {
     "save-current-tabs": {
       "suggested_key": {
-        "default": "Ctrl+Shift+S"
+        "default": "Ctrl+Shift+F"
       },
       "description": "Save current tabs as a new group"
     },
     "quick-switch": {
       "suggested_key": {
-        "default": "Ctrl+Shift+T"
+        "default": "Ctrl+Shift+Q"
       },
       "description": "Open quick switch panel"
     }
@@ -45,5 +45,6 @@
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true
-  }
+  },
+  "web_accessible_resources": ["prompt/prompt.html"]
 }

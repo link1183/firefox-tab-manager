@@ -4,6 +4,12 @@ document.addEventListener("DOMContentLoaded", function () {
   initDragAndDrop();
   setupKeyboardNavigation();
 
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.groupsUpdatedTimestamp) {
+      loadGroups();
+    }
+  });
+
   // Set up event listeners
   document.getElementById("save-group").addEventListener("click", saveGroup);
   document.getElementById("add-tab").addEventListener("click", addTabToGroup);

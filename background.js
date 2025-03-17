@@ -21,27 +21,77 @@ browser.runtime.onInstalled.addListener(() => {
   scheduleStorageCleanup();
 });
 
+function saveTabGroupFromTabs(tabs, groupName) {
+  // Get include pinned tabs setting
+  return browser.storage.sync.get("includePinnedTabs").then((settings) => {
+    const includePinned = settings.includePinnedTabs || false;
+
+    // Filter tabs based on setting
+    const filteredTabs = includePinned
+      ? tabs
+      : tabs.filter((tab) => !tab.pinned);
+
+    // Compress tab data to save space
+    const tabInfoList = filteredTabs.map((tab) => ({
+      url: tab.url,
+      title: tab.title,
+      domain: extractDomain(tab.url),
+    }));
+
+    return browser.storage.sync.get("groups").then((data) => {
+      const groups = data.groups || {};
+      const groupId = Date.now().toString();
+
+      groups[groupId] = {
+        name: groupName,
+        tabs: tabInfoList,
+        created: Date.now(),
+        lastAccessed: Date.now(),
+      };
+
+      return browser.storage.sync.set({ groups }).then(() => {
+        notifyGroupsUpdated();
+        return true;
+      });
+    });
+  });
+}
+
 // Set up command listeners for keyboard shortcuts
 function setupCommandListeners() {
+  console.log("Setting up command listeners");
+
   browser.commands.onCommand.addListener((command) => {
+    console.log("Command received:", command);
+
     switch (command) {
       case "save-current-tabs":
-        // Request group name from user
-        browser.tabs
-          .query({ currentWindow: true, active: true })
-          .then((activeTabs) => {
-            if (activeTabs.length > 0) {
-              const defaultName =
-                getDomainFromUrl(activeTabs[0].url) || "New Group";
-              const groupName = prompt(
-                "Enter name for new tab group:",
-                defaultName,
-              );
-              if (groupName) {
-                saveTabGroup(groupName);
+        browser.tabs.query({ currentWindow: true }).then((originalTabs) => {
+          browser.tabs
+            .query({ currentWindow: true, active: true })
+            .then((activeTabs) => {
+              if (activeTabs.length > 0) {
+                const defaultName =
+                  getDomainFromUrl(activeTabs[0].url) || "New Group";
+
+                // Save the tabs temporarily
+                browser.storage.local
+                  .set({
+                    pendingSave: {
+                      tabs: originalTabs,
+                      defaultName: defaultName,
+                    },
+                  })
+                  .then(() => {
+                    // Open a small popup tab for input
+                    browser.tabs.create({
+                      url: "/prompt-tab.html",
+                      active: true,
+                    });
+                  });
               }
-            }
-          });
+            });
+        });
         break;
 
       case "quick-switch":
@@ -61,16 +111,63 @@ function setupCommandListeners() {
   });
 }
 
+// Create a custom prompt popup
+function createPromptPopup(message, defaultValue) {
+  console.log("Creating prompt popup with message:", message);
+
+  // First get the current window ID to remember it
+  browser.windows.getCurrent().then((currentWindow) => {
+    // Store the current window ID to use it later
+    const sourceWindowId = currentWindow.id;
+
+    let createData = {
+      type: "popup",
+      url: browser.runtime.getURL("prompt/prompt.html"),
+      width: 400,
+      height: 200,
+    };
+
+    browser.windows
+      .create(createData)
+      .then(() => {
+        // Store both the prompt data and source window ID
+        browser.storage.local.set({
+          promptData: {
+            message: message,
+            defaultValue: defaultValue,
+            sourceWindowId: sourceWindowId, // Save original window ID
+          },
+        });
+
+        // Listen for response from the popup
+        function promptListener(message) {
+          if (message.action === "promptResponse") {
+            browser.runtime.onMessage.removeListener(promptListener);
+            if (message.value) {
+              // Use the saved window ID when saving tabs
+              saveTabGroupFromWindow(sourceWindowId, message.value);
+            }
+          }
+        }
+
+        browser.runtime.onMessage.addListener(promptListener);
+      })
+      .catch((error) => {
+        console.error("Error creating prompt popup:", error);
+      });
+  });
+}
+
 // Show quick switch panel
-function showQuickSwitchPanel(groups) {
+function showQuickSwitchPanel() {
   browser.tabs.create({
     url: browser.runtime.getURL("quick-switch/quick-switch.html"),
   });
 }
 
 // Save current tabs as a group
-function saveTabGroup(groupName) {
-  return browser.tabs.query({ currentWindow: true }).then((tabs) => {
+function saveTabGroupFromWindow(windowId, groupName) {
+  return browser.tabs.query({ windowId: windowId }).then((tabs) => {
     // Get include pinned tabs setting
     return browser.storage.sync.get("includePinnedTabs").then((settings) => {
       const includePinned = settings.includePinnedTabs || false;
@@ -632,11 +729,13 @@ function importGroups(jsonData) {
 
 // Notify that groups have been updated
 function notifyGroupsUpdated() {
-  browser.runtime.sendMessage({ action: "groupsUpdated" });
+  browser.storage.local
+    .set({ groupsUpdatedTimestamp: Date.now() })
+    .catch((error) => console.log("Storage update error:", error));
 }
 
 // Listen for messages from the popup
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message) => {
   let responsePromise;
 
   switch (message.action) {
@@ -730,6 +829,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         success: true,
         data,
       }));
+      break;
+
+    case "saveTabsWithName":
+      responsePromise = saveTabGroupFromTabs(message.tabs, message.name).then(
+        () => ({
+          success: true,
+        }),
+      );
       break;
 
     case "importGroups":
