@@ -1,11 +1,11 @@
-// Tab group data structure will be stored in browser.storage.local for cross-device functionality
+// Tab group data structure will be stored in browser.storage.sync for cross-device functionality
 // Format: { groups: { groupId: { name: string, tabs: [tabInfo], created: timestamp } } }
 
 // Initialize storage with empty groups if not exists
 browser.runtime.onInstalled.addListener(() => {
-  browser.storage.local.get("groups").then((data) => {
+  browser.storage.sync.get("groups").then((data) => {
     if (!data.groups) {
-      browser.storage.local.set({ groups: {} });
+      browser.storage.sync.set({ groups: {} });
     }
   });
 });
@@ -19,11 +19,10 @@ function saveTabGroup(groupName) {
     const tabInfoList = nonPinnedTabs.map((tab) => ({
       url: tab.url,
       title: tab.title,
-      favIconUrl: tab.favIconUrl,
       domain: extractDomain(tab.url),
     }));
 
-    browser.storage.local.get("groups").then((data) => {
+    browser.storage.sync.get("groups").then((data) => {
       const groups = data.groups || {};
       const groupId = Date.now().toString();
 
@@ -33,7 +32,7 @@ function saveTabGroup(groupName) {
         created: Date.now(),
       };
 
-      browser.storage.local.set({ groups }).then(() => {
+      browser.storage.sync.set({ groups }).then(() => {
         notifyGroupsUpdated();
       });
     });
@@ -52,7 +51,7 @@ function extractDomain(url) {
 
 // Open a tab group
 function openTabGroup(groupId, openInNewWindow = false) {
-  browser.storage.local.get("groups").then((data) => {
+  browser.storage.sync.get("groups").then((data) => {
     if (!data.groups || !data.groups[groupId]) {
       return;
     }
@@ -102,22 +101,22 @@ function openTabGroup(groupId, openInNewWindow = false) {
 
 // Update the last accessed timestamp for a group
 function updateGroupAccessTime(groupId) {
-  return browser.storage.local.get("groups").then((data) => {
+  return browser.storage.sync.get("groups").then((data) => {
     if (data.groups && data.groups[groupId]) {
       const groups = data.groups;
       groups[groupId].lastAccessed = Date.now();
-      return browser.storage.local.set({ groups });
+      return browser.storage.sync.set({ groups });
     }
   });
 }
 
 // Delete a tab group
 function deleteTabGroup(groupId) {
-  return browser.storage.local.get("groups").then((data) => {
+  return browser.storage.sync.get("groups").then((data) => {
     if (data.groups && data.groups[groupId]) {
       const groups = data.groups;
       delete groups[groupId];
-      return browser.storage.local.set({ groups }).then(() => {
+      return browser.storage.sync.set({ groups }).then(() => {
         notifyGroupsUpdated();
         return true;
       });
@@ -137,15 +136,14 @@ function addTabToGroup(groupId) {
       const tabInfo = {
         url: tab.url,
         title: tab.title,
-        favIconUrl: tab.favIconUrl,
         domain: extractDomain(tab.url),
       };
 
-      return browser.storage.local.get("groups").then((data) => {
+      return browser.storage.sync.get("groups").then((data) => {
         if (data.groups && data.groups[groupId]) {
           const groups = data.groups;
           groups[groupId].tabs.push(tabInfo);
-          return browser.storage.local.set({ groups }).then(() => {
+          return browser.storage.sync.set({ groups }).then(() => {
             notifyGroupsUpdated();
             return true;
           });
@@ -157,11 +155,11 @@ function addTabToGroup(groupId) {
 
 // Remove a tab from a group
 function removeTabFromGroup(groupId, tabIndex) {
-  return browser.storage.local.get("groups").then((data) => {
+  return browser.storage.sync.get("groups").then((data) => {
     if (data.groups && data.groups[groupId]) {
       const groups = data.groups;
       groups[groupId].tabs.splice(tabIndex, 1);
-      return browser.storage.local.set({ groups }).then(() => {
+      return browser.storage.sync.set({ groups }).then(() => {
         notifyGroupsUpdated();
         return true;
       });
@@ -172,7 +170,7 @@ function removeTabFromGroup(groupId, tabIndex) {
 
 // Reorder tabs within a group
 function reorderTabInGroup(groupId, oldIndex, newIndex) {
-  browser.storage.local.get("groups", (data) => {
+  browser.storage.sync.get("groups", (data) => {
     if (data.groups && data.groups[groupId]) {
       const groups = data.groups;
       const tab = groups[groupId].tabs[oldIndex];
@@ -183,7 +181,7 @@ function reorderTabInGroup(groupId, oldIndex, newIndex) {
       // Insert at new position
       groups[groupId].tabs.splice(newIndex, 0, tab);
 
-      browser.storage.local.set({ groups }, () => {
+      browser.storage.sync.set({ groups }, () => {
         notifyGroupsUpdated();
       });
     }
@@ -192,7 +190,7 @@ function reorderTabInGroup(groupId, oldIndex, newIndex) {
 
 // Move a tab from one group to another
 function moveTabBetweenGroups(sourceGroupId, tabIndex, targetGroupId) {
-  browser.storage.local.get("groups", (data) => {
+  browser.storage.sync.get("groups", (data) => {
     if (
       data.groups &&
       data.groups[sourceGroupId] &&
@@ -207,7 +205,7 @@ function moveTabBetweenGroups(sourceGroupId, tabIndex, targetGroupId) {
       // Add to target group
       groups[targetGroupId].tabs.push(tab);
 
-      browser.storage.local.set({ groups }, () => {
+      browser.storage.sync.set({ groups }, () => {
         notifyGroupsUpdated();
       });
     }
@@ -234,13 +232,12 @@ function autoGroupTabs() {
       domainGroups[domain].push({
         url: tab.url,
         title: tab.title,
-        favIconUrl: tab.favIconUrl,
         domain: domain,
       });
     });
 
     // Create a new group for each domain with more than one tab
-    return browser.storage.local.get("groups").then((data) => {
+    return browser.storage.sync.get("groups").then((data) => {
       const groups = data.groups || {};
 
       Object.keys(domainGroups).forEach((domain) => {
@@ -255,7 +252,7 @@ function autoGroupTabs() {
         }
       });
 
-      return browser.storage.local.set({ groups }).then(() => {
+      return browser.storage.sync.set({ groups }).then(() => {
         notifyGroupsUpdated();
         return true;
       });
@@ -266,7 +263,7 @@ function autoGroupTabs() {
 // Export tab groups to JSON
 function exportGroups() {
   return new Promise((resolve) => {
-    browser.storage.local.get("groups", (data) => {
+    browser.storage.sync.get("groups", (data) => {
       const groups = data.groups || {};
       const exportData = JSON.stringify(groups, null, 2);
       resolve(exportData);
@@ -279,13 +276,13 @@ function importGroups(jsonData) {
   try {
     const importedGroups = JSON.parse(jsonData);
 
-    browser.storage.local.get("groups", (data) => {
+    browser.storage.sync.get("groups", (data) => {
       const currentGroups = data.groups || {};
 
       // Merge imported groups with current groups
       const mergedGroups = { ...currentGroups, ...importedGroups };
 
-      browser.storage.local.set({ groups: mergedGroups }, () => {
+      browser.storage.sync.set({ groups: mergedGroups }, () => {
         notifyGroupsUpdated();
         return true;
       });
@@ -371,7 +368,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
 
     case "getGroups":
-      return browser.storage.local.get("groups").then((data) => {
+      return browser.storage.sync.get("groups").then((data) => {
         return { groups: data.groups || {} };
       });
 
@@ -381,5 +378,5 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Return true and send response when ready
   responsePromise.then(sendResponse);
-  return true; // Keep the message channel open for the alocal response
+  return true; // Keep the message channel open for the async response
 });

@@ -355,14 +355,6 @@ select:focus {
   border-top: 2px solid var(--color-primary);
 }
 
-.tab-favicon {
-  width: 16px;
-  height: 16px;
-  margin-right: 12px;
-  flex-shrink: 0;
-  border-radius: 2px;
-}
-
 .domain-badge {
   font-size: 10px;
   padding: 2px 6px;
@@ -512,12 +504,6 @@ select:focus {
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--color-border);
-}
-
-.preview-favicon {
-  width: 20px;
-  height: 20px;
-  margin-right: 12px;
 }
 
 .preview-title {
