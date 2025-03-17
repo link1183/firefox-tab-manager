@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "Tab Group Manager",
+  "version": "1.0",
+  "description": "Group tabs and switch between groups with a single click",
+  "permissions": ["tabs", "storage"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    },
+    "default_title": "Tab Group Manager",
+    "default_popup": "popup/popup.html"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png"
+  }
+}
