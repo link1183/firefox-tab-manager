@@ -232,7 +232,6 @@ function importData() {
 
 // Open advanced domain settings
 function openAdvancedDomainSettings() {
-  // This would typically open a modal dialog or navigate to another page
   alert(
     "Advanced domain settings would be shown here. This feature is under development.",
   );

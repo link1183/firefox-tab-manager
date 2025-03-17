@@ -3,22 +3,119 @@
   <head>
     <title>Save Tab Group</title>
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+      :root {
+        --color-primary: #3a56e4;
+        --color-primary-hover: #2a46d4;
+        --color-secondary: #6b7280;
+        --color-secondary-hover: #4b5563;
+        --color-bg: #f8fafc;
+        --color-surface: #ffffff;
+        --color-text: #1f2937;
+        --color-text-secondary: #64748b;
+        --color-border: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow:
+          0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --radius-sm: 0.25rem;
+        --radius: 0.5rem;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
       body {
-        font-family: sans-serif;
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--color-text);
+        background-color: var(--color-bg);
         padding: 20px;
       }
+
       .container {
         max-width: 400px;
         margin: 0 auto;
+        background-color: var(--color-surface);
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow);
       }
-      input {
+
+      h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-primary);
+        margin-bottom: 16px;
+      }
+
+      p {
+        color: var(--color-text);
+        margin-bottom: 16px;
+      }
+
+      input[type="text"] {
         width: 100%;
-        padding: 8px;
-        margin: 10px 0;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 14px;
+        margin-bottom: 20px;
+        transition: border-color 0.2s ease;
       }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 2px rgba(58, 86, 228, 0.1);
+      }
+
+      .button-group {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
       button {
-        padding: 8px 16px;
-        margin-right: 8px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      #saveBtn {
+        background-color: var(--color-primary);
+        color: white;
+      }
+
+      #saveBtn:hover {
+        background-color: var(--color-primary-hover);
+      }
+
+      #cancelBtn {
+        background-color: var(--color-secondary);
+        color: white;
+      }
+
+      #cancelBtn:hover {
+        background-color: var(--color-secondary-hover);
       }
     </style>
   </head>
@@ -26,9 +123,11 @@
     <div class="container">
       <h2>Save Tab Group</h2>
       <p>Enter a name for your tab group:</p>
-      <input type="text" id="groupName" />
-      <button id="saveBtn">Save</button>
-      <button id="cancelBtn">Cancel</button>
+      <input type="text" id="groupName" autofocus />
+      <div class="button-group">
+        <button id="cancelBtn">Cancel</button>
+        <button id="saveBtn">Save</button>
+      </div>
     </div>
     <script src="prompt-tab.js"></script>
   </body>

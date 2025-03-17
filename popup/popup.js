@@ -61,6 +61,46 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
+// Save current tabs as a new group
+function saveGroup() {
+  const groupNameInput = document.getElementById("new-group-name");
+  const groupName = groupNameInput.value.trim();
+
+  if (!groupName) {
+    showNotification("Please enter a group name", "error");
+    groupNameInput.focus();
+    return;
+  }
+
+  // Show loading state
+  const saveButton = document.getElementById("save-group");
+  const originalText = saveButton.innerHTML;
+  saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+  saveButton.disabled = true;
+
+  browser.runtime
+    .sendMessage({ action: "saveGroup", groupName })
+    .then((response) => {
+      if (response && response.success) {
+        groupNameInput.value = "";
+        loadGroups();
+        showNotification("Group saved successfully", "success");
+      } else {
+        showNotification("Failed to save group", "error");
+      }
+    })
+    .catch((error) => {
+      console.error("Error saving group:", error);
+      showNotification("Error saving group", "error");
+    })
+    .finally(() => {
+      // Restore button state
+      saveButton.innerHTML = originalText;
+      saveButton.disabled = false;
+      groupNameInput.focus();
+    });
+}
+
 // Toggle keyboard shortcuts panel
 function toggleShortcutsPanel() {
   const panel = document.getElementById("shortcuts-panel");
