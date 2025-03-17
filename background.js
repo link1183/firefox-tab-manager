@@ -173,19 +173,6 @@ function saveTabGroupFromTabs(tabs, groupName) {
 function setupCommandListeners() {
   browser.commands.onCommand.addListener((command) => {
     switch (command) {
-      case "openTabGroupWithHiding":
-        responsePromise = openTabGroupWithHiding(
-          message.groupId,
-          message.openInNewWindow,
-        ).then(() => ({ success: true }));
-        break;
-
-      case "showHiddenTabs":
-        responsePromise = showHiddenTabs(message.windowId).then((result) => ({
-          success: result,
-        }));
-        break;
-
       case "save-current-tabs":
         browser.tabs.query({ currentWindow: true }).then((originalTabs) => {
           browser.tabs
@@ -824,6 +811,19 @@ browser.runtime.onMessage.addListener((message) => {
         message.groupId,
         message.openInNewWindow,
       ).then(() => ({ success: true }));
+      break;
+
+    case "openGroupWithHiding":
+      responsePromise = openTabGroupWithHiding(
+        message.groupId,
+        message.openInNewWindow,
+      ).then(() => ({ success: true }));
+      break;
+
+    case "showHiddenTabs":
+      responsePromise = showHiddenTabs(message.windowId).then((result) => ({
+        success: result,
+      }));
       break;
 
     case "deleteGroup":

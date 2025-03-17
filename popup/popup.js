@@ -999,44 +999,34 @@ function autoGroupTabs() {
     });
 }
 
-// Open a tab group
+// Open a group
 function openGroup(groupId) {
-  const openInNewWindow =
-    document.querySelector('input[name="window-option"]:checked').value ===
-    "new";
+  const openInNewWindow = document.getElementById("open-new-window").checked;
 
+  // Get the tab switching method from storage
   browser.storage.sync.get("tabSwitchingMethod").then((settings) => {
     const tabSwitchingMethod = settings.tabSwitchingMethod || "close";
 
-    let message = openInNewWindow
-      ? "This will open the group in a new window. Continue?"
-      : tabSwitchingMethod === "hide"
-        ? "This will hide your current non-pinned tabs and show the group tabs. Continue?"
-        : "This will replace your current non-pinned tabs. Continue?";
+    const action =
+      tabSwitchingMethod === "hide" ? "openGroupWithHiding" : "openGroup";
 
-    showConfirm(message, () => {
-      const action =
-        tabSwitchingMethod === "hide" ? "openGroupWithHiding" : "openGroup";
-
-      browser.runtime
-        .sendMessage({
-          action: action,
-          groupId,
-          openInNewWindow,
-        })
-        .then((response) => {
-          if (response && response.success) {
-            window.close(); // Close the popup
-          }
-        })
-        .catch((error) => {
-          console.error(
-            `Error opening group with ${tabSwitchingMethod} method:`,
-            error,
-          );
-          showNotification(`Error opening group`, "error");
-        });
-    });
+    browser.runtime
+      .sendMessage({
+        action: action,
+        groupId,
+        openInNewWindow,
+      })
+      .then((response) => {
+        if (response && response.success) {
+          window.close();
+        }
+      })
+      .catch((error) => {
+        console.error(
+          `Error opening group with ${tabSwitchingMethod} method:`,
+          error,
+        );
+      });
   });
 }
 
