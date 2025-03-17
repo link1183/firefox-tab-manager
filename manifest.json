@@ -1,24 +1,49 @@
 {
   "manifest_version": 2,
-  "name": "Tab Group Manager",
-  "version": "1.0",
-  "description": "Group tabs and switch between groups with a single click",
-  "permissions": ["tabs", "storage"],
+  "name": "Tab Group Manager Plus",
+  "version": "1.1",
+  "description": "Organize, save, and switch between tab groups with powerful management features",
+  "permissions": ["tabs", "storage", "downloads"],
   "background": {
     "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tabgroupmanager@adrieng.ch"
+    }
   },
   "browser_action": {
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png"
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
     },
-    "default_title": "Tab Group Manager",
+    "default_title": "Tab Group Manager Plus",
     "default_popup": "popup/popup.html"
   },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
-    "48": "icons/icon-48.png"
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "commands": {
+    "save-current-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S"
+      },
+      "description": "Save current tabs as a new group"
+    },
+    "quick-switch": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+T"
+      },
+      "description": "Open quick switch panel"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
   }
 }

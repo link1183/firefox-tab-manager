@@ -3,9 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="popup.css" />
+    <!-- Fix: Update Font Awesome to version 6.4.2 which has fewer reported errors -->
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+      integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   </head>
@@ -21,12 +25,29 @@
             id="new-group-name"
             placeholder="Enter a name for your tab group..."
           />
-          <button id="save-group"><i class="fas fa-save"></i> Save</button>
+          <button id="save-group" class="primary-btn">
+            <i class="fas fa-save"></i> Save
+          </button>
+        </div>
+        <div class="form-group">
+          <button id="auto-group" class="secondary-btn">
+            <i class="fas fa-magic"></i> Auto Group by Domain
+          </button>
         </div>
       </div>
 
       <div class="section">
         <h2><i class="fas fa-folder"></i> Your Tab Groups</h2>
+        <div class="search-container">
+          <input
+            type="text"
+            id="search-groups"
+            placeholder="Search groups and tabs..."
+            class="search-input"
+          />
+          <i class="fas fa-search search-icon"></i>
+        </div>
+
         <div class="form-group window-option">
           <label><i class="fas fa-window-restore"></i> Open groups in:</label>
           <div class="radio-group">
@@ -56,9 +77,30 @@
           <select id="add-to-group">
             <option value="">Select a group...</option>
           </select>
-          <button id="add-tab"><i class="fas fa-plus"></i> Add</button>
+          <button id="add-tab" class="primary-btn">
+            <i class="fas fa-plus"></i> Add
+          </button>
         </div>
       </div>
+
+      <div class="section">
+        <h2><i class="fas fa-cog"></i> Utilities</h2>
+        <div class="utils-container">
+          <button id="export-groups" class="utility-btn">
+            <i class="fas fa-file-export"></i> Export Groups
+          </button>
+          <button id="import-groups" class="utility-btn">
+            <i class="fas fa-file-import"></i> Import Groups
+          </button>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <div class="version">Tab Group Manager v1.1</div>
+        <a href="#" id="open-options" class="options-link">
+          <i class="fas fa-sliders-h"></i> Options
+        </a>
+      </footer>
     </div>
 
     <script src="popup.js"></script>

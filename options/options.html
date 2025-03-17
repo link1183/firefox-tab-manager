@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tab Group Manager Options</title>
+    <link rel="stylesheet" href="options.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+      integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1><i class="fas fa-layer-group"></i> Tab Group Manager</h1>
+        <p class="subtitle">Options & Settings</p>
+      </header>
+
+      <main>
+        <section class="card">
+          <h2><i class="fas fa-sliders-h"></i> General Settings</h2>
+
+          <div class="form-row">
+            <div class="option-label">Default opening method</div>
+            <div class="option-control">
+              <select id="defaultOpeningMethod">
+                <option value="current">Current Window</option>
+                <option value="new">New Window</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Include pinned tabs</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="includePinnedTabs" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Remember last viewed group</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="rememberLastGroup" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Enable keyboard shortcuts</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="enableKeyboardShortcuts" checked />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2><i class="fas fa-palette"></i> Appearance</h2>
+
+          <div class="form-row">
+            <div class="option-label">Theme</div>
+            <div class="option-control">
+              <select id="themeOption">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">Follow System</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Show domain badges</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="showDomainBadges" checked />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Max tabs displayed per group</div>
+            <div class="option-control">
+              <input
+                type="number"
+                id="maxTabsDisplayed"
+                min="1"
+                max="50"
+                value="15"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2><i class="fas fa-cloud"></i> Sync & Backup</h2>
+
+          <div class="form-row">
+            <div class="option-label">Sync across devices</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="syncAcrossDevices" checked />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Auto backup</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="autoBackup" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Auto backup frequency</div>
+            <div class="option-control">
+              <select id="autoBackupFrequency" disabled>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row buttons-row">
+            <button id="exportAllData" class="btn primary-btn">
+              <i class="fas fa-download"></i> Export All Data
+            </button>
+            <button id="importData" class="btn secondary-btn">
+              <i class="fas fa-upload"></i> Import Data
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2><i class="fas fa-magic"></i> Auto Grouping</h2>
+
+          <div class="form-row">
+            <div class="option-label">Suggest auto-grouping</div>
+            <div class="option-control">
+              <label class="switch">
+                <input type="checkbox" id="suggestAutoGrouping" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="option-label">Minimum tabs for suggestion</div>
+            <div class="option-control">
+              <input
+                type="number"
+                id="minTabsForSuggestion"
+                min="2"
+                max="20"
+                value="3"
+              />
+            </div>
+          </div>
+
+          <div class="form-row buttons-row">
+            <button id="manageAutoGroups" class="btn primary-btn">
+              <i class="fas fa-cog"></i> Advanced Domain Settings
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div class="saved-indicator">All changes saved automatically</div>
+        <div class="version">Tab Group Manager v1.1</div>
+      </footer>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
