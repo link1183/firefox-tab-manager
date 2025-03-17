@@ -21,6 +21,118 @@ browser.runtime.onInstalled.addListener(() => {
   scheduleStorageCleanup();
 });
 
+// Store hidden tabs by window ID
+let hiddenTabs = {};
+
+// Open a tab group using the hiding approach
+function openTabGroupWithHiding(groupId, openInNewWindow = false) {
+  return browser.storage.sync
+    .get("groups")
+    .then((data) => {
+      if (!data.groups || !data.groups[groupId]) {
+        return false;
+      }
+
+      const group = data.groups[groupId];
+
+      if (openInNewWindow) {
+        // Open in a new window, no need to hide tabs
+        return browser.windows
+          .create({ url: group.tabs[0].url })
+          .then((newWindow) => {
+            // Open the rest of the tabs in the new window
+            const tabPromises = [];
+            for (let i = 1; i < group.tabs.length; i++) {
+              tabPromises.push(
+                browser.tabs.create({
+                  url: group.tabs[i].url,
+                  windowId: newWindow.id,
+                }),
+              );
+            }
+            return Promise.all(tabPromises);
+          });
+      } else {
+        // Open in current window using tab hiding
+        return browser.tabs
+          .query({ currentWindow: true })
+          .then(async (currentTabs) => {
+            const windowId = currentTabs[0].windowId;
+
+            // Save the current tab IDs for later unhiding
+            const nonPinnedTabs = currentTabs.filter((tab) => !tab.pinned);
+
+            // Store hidden tabs for this window
+            if (!hiddenTabs[windowId]) {
+              hiddenTabs[windowId] = [];
+            }
+
+            // Hide all non-pinned tabs
+            const hidingPromises = nonPinnedTabs.map((tab) => {
+              hiddenTabs[windowId].push(tab.id);
+              return browser.tabs.hide(tab.id);
+            });
+
+            await Promise.all(hidingPromises);
+            // Now open the tabs from the group
+            const tabPromises = [];
+            for (let i = 0; i < group.tabs.length; i++) {
+              tabPromises.push(
+                browser.tabs.create({
+                  url: group.tabs[i].url,
+                  windowId: windowId,
+                }),
+              );
+            }
+            return await Promise.all(tabPromises);
+          });
+      }
+    })
+    .then(() => {
+      // Update last accessed timestamp
+      return updateGroupAccessTime(groupId);
+    });
+}
+
+// Switch back to previously hidden tabs
+async function showHiddenTabs(windowId) {
+  if (!hiddenTabs[windowId] || hiddenTabs[windowId].length === 0) {
+    return Promise.resolve(false);
+  }
+
+  // Show previously hidden tabs
+  const unhidingPromises = hiddenTabs[windowId].map((tabId) => {
+    return browser.tabs.show(tabId).catch((error) => {
+      console.log(`Tab might have been closed: ${error}`);
+      return null;
+    });
+  });
+
+  return Promise.all(unhidingPromises)
+    .then(() => {
+      // Query current visible tabs that were opened as part of the group
+      return browser.tabs
+        .query({ windowId, hidden: false })
+        .then((visibleTabs) => {
+          // Hide the visible tabs that aren't in our hidden list
+          const newTabIds = visibleTabs
+            .filter((tab) => !hiddenTabs[windowId].includes(tab.id))
+            .map((tab) => tab.id);
+
+          // Hide these tabs
+          const hidePromises = newTabIds.map((tabId) =>
+            browser.tabs.hide(tabId),
+          );
+          return Promise.all(hidePromises);
+        });
+    })
+    .then(() => {
+      // Clear the stored hidden tabs for this window
+      hiddenTabs[windowId] = [];
+      return true;
+    });
+}
+
 function saveTabGroupFromTabs(tabs, groupName) {
   // Get include pinned tabs setting
   return browser.storage.sync.get("includePinnedTabs").then((settings) => {
@@ -61,6 +173,19 @@ function saveTabGroupFromTabs(tabs, groupName) {
 function setupCommandListeners() {
   browser.commands.onCommand.addListener((command) => {
     switch (command) {
+      case "openTabGroupWithHiding":
+        responsePromise = openTabGroupWithHiding(
+          message.groupId,
+          message.openInNewWindow,
+        ).then(() => ({ success: true }));
+        break;
+
+      case "showHiddenTabs":
+        responsePromise = showHiddenTabs(message.windowId).then((result) => ({
+          success: result,
+        }));
+        break;
+
       case "save-current-tabs":
         browser.tabs.query({ currentWindow: true }).then((originalTabs) => {
           browser.tabs

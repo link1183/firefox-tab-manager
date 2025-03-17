@@ -23,6 +23,7 @@ function loadOptions() {
       autoBackupFrequency: "weekly",
       suggestAutoGrouping: false,
       minTabsForSuggestion: 3,
+      tabSwitchingMethod: "close",
     },
     function (items) {
       // Handle potential undefined items
@@ -56,6 +57,8 @@ function loadOptions() {
         items.suggestAutoGrouping;
       document.getElementById("minTabsForSuggestion").value =
         items.minTabsForSuggestion;
+      document.getElementById("tabSwitchingMethod").value =
+        items.tabSwitchingMethod;
 
       // Apply initial theme if needed
       applyTheme(items.themeOption);

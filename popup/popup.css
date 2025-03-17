@@ -938,3 +938,38 @@ kbd {
     flex: 1 0 100%;
   }
 }
+
+.active-group {
+  border-left: 4px solid var(--color-success);
+  position: relative;
+}
+
+.active-group::after {
+  content: "Active";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: var(--color-success);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.show-all-tabs-btn {
+  background-color: var(--color-secondary);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.show-all-tabs-btn i {
+  margin: 0;
+}
+
+.show-all-tabs-btn:hover {
+  background-color: var(--color-secondary-hover);
+}

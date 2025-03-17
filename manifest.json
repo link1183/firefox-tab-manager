@@ -3,7 +3,7 @@
   "name": "Tab Group Manager Plus",
   "version": "1.1",
   "description": "Organize, save, and switch between tab groups with powerful management features",
-  "permissions": ["tabs", "storage", "downloads"],
+  "permissions": ["tabs", "storage", "downloads", "tabHide"],
   "background": {
     "scripts": ["background.js"]
   },

@@ -365,6 +365,96 @@ function createGroupElement(groupId, group, container) {
   });
 }
 
+function showAllHiddenTabs(windowId) {
+  browser.runtime
+    .sendMessage({
+      action: "showHiddenTabs",
+      windowId: windowId,
+    })
+    .then((response) => {
+      if (response && response.success) {
+        loadGroups(); // Refresh the view
+        showNotification("Restored all tabs", "success");
+      }
+    })
+    .catch((error) => {
+      console.error("Error showing hidden tabs:", error);
+      showNotification("Error showing hidden tabs", "error");
+    });
+}
+
+function checkForActiveGroup() {
+  browser.tabs
+    .query({ currentWindow: true, hidden: false })
+    .then((visibleTabs) => {
+      browser.tabs
+        .query({ currentWindow: true, hidden: true })
+        .then((hiddenTabs) => {
+          // If we have hidden tabs, this might be a hidden group situation
+          if (hiddenTabs.length > 0) {
+            const currentWindowId =
+              visibleTabs.length > 0 ? visibleTabs[0].windowId : null;
+
+            // Check if this set of visible tabs matches any group
+            browser.runtime
+              .sendMessage({ action: "getGroups" })
+              .then((response) => {
+                if (!response || !response.groups) return;
+
+                const groups = response.groups;
+                const visibleUrls = new Set(visibleTabs.map((tab) => tab.url));
+
+                for (const groupId in groups) {
+                  const group = groups[groupId];
+                  const groupUrls = new Set(group.tabs.map((tab) => tab.url));
+
+                  // Check if the visible tabs match this group's tabs
+                  let matches = 0;
+                  let totalTabs = group.tabs.length;
+
+                  group.tabs.forEach((groupTab) => {
+                    if (visibleUrls.has(groupTab.url)) {
+                      matches++;
+                    }
+                  });
+
+                  // If we have at least 80% match, consider this the active group
+                  if (matches > 0 && matches / totalTabs >= 0.8) {
+                    // Mark this group as active
+                    const groupElement = document.querySelector(
+                      `.group-item[data-group-id="${groupId}"]`,
+                    );
+                    if (groupElement) {
+                      groupElement.classList.add("active-group");
+
+                      // Add a "Show All Tabs" button
+                      const actionsElement =
+                        groupElement.querySelector(".group-actions");
+                      if (actionsElement) {
+                        const showAllTabsButton =
+                          document.createElement("button");
+                        showAllTabsButton.className = "show-all-tabs-btn";
+                        showAllTabsButton.innerHTML =
+                          '<i class="fas fa-eye"></i>';
+                        showAllTabsButton.title = "Show all hidden tabs";
+                        showAllTabsButton.dataset.windowId = currentWindowId;
+                        showAllTabsButton.addEventListener("click", (e) => {
+                          e.stopPropagation();
+                          showAllHiddenTabs(currentWindowId);
+                        });
+                        actionsElement.prepend(showAllTabsButton);
+                      }
+                    }
+
+                    break;
+                  }
+                }
+              });
+          }
+        });
+    });
+}
+
 // Create a tab element
 function createTabElement(tab, groupId, tabIndex) {
   const tabElement = document.createElement("div");
@@ -915,26 +1005,38 @@ function openGroup(groupId) {
     document.querySelector('input[name="window-option"]:checked').value ===
     "new";
 
-  const message = openInNewWindow
-    ? "This will open the group in a new window. Continue?"
-    : "This will replace your current non-pinned tabs. Continue?";
+  browser.storage.sync.get("tabSwitchingMethod").then((settings) => {
+    const tabSwitchingMethod = settings.tabSwitchingMethod || "close";
 
-  showConfirm(message, () => {
-    browser.runtime
-      .sendMessage({
-        action: "openGroup",
-        groupId,
-        openInNewWindow,
-      })
-      .then((response) => {
-        if (response && response.success) {
-          window.close(); // Close the popup
-        }
-      })
-      .catch((error) => {
-        console.error("Error opening group:", error);
-        showNotification("Error opening group", "error");
-      });
+    let message = openInNewWindow
+      ? "This will open the group in a new window. Continue?"
+      : tabSwitchingMethod === "hide"
+        ? "This will hide your current non-pinned tabs and show the group tabs. Continue?"
+        : "This will replace your current non-pinned tabs. Continue?";
+
+    showConfirm(message, () => {
+      const action =
+        tabSwitchingMethod === "hide" ? "openGroupWithHiding" : "openGroup";
+
+      browser.runtime
+        .sendMessage({
+          action: action,
+          groupId,
+          openInNewWindow,
+        })
+        .then((response) => {
+          if (response && response.success) {
+            window.close(); // Close the popup
+          }
+        })
+        .catch((error) => {
+          console.error(
+            `Error opening group with ${tabSwitchingMethod} method:`,
+            error,
+          );
+          showNotification(`Error opening group`, "error");
+        });
+    });
   });
 }
 
