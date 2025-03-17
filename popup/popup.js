@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize UI
   loadGroups();
   initDragAndDrop();
+  setupKeyboardNavigation();
 
   // Set up event listeners
   document.getElementById("save-group").addEventListener("click", saveGroup);
@@ -15,9 +16,30 @@ document.addEventListener("DOMContentLoaded", function () {
   document
     .getElementById("import-groups")
     .addEventListener("click", importGroups);
+
+  // Debounced search input
+  const searchInput = document.getElementById("search-groups");
+  searchInput.addEventListener("input", debounce(filterGroups, 300));
+
+  // Add pattern grouping button event
   document
-    .getElementById("search-groups")
-    .addEventListener("input", filterGroups);
+    .getElementById("pattern-group")
+    .addEventListener("click", groupByPattern);
+
+  // Add merge groups button event
+  document
+    .getElementById("merge-groups")
+    .addEventListener("click", mergeGroupsDialog);
+
+  // Add restore deleted button event
+  document
+    .getElementById("restore-deleted")
+    .addEventListener("click", showRecentlyDeleted);
+
+  // Toggle keyboard shortcuts panel
+  document
+    .getElementById("toggle-shortcuts")
+    .addEventListener("click", toggleShortcutsPanel);
 
   // Update groups list every time popup is opened
   browser.runtime.onMessage.addListener((message) => {
@@ -25,7 +47,91 @@ document.addEventListener("DOMContentLoaded", function () {
       loadGroups();
     }
   });
+
+  // Open options page
+  document.getElementById("open-options").addEventListener("click", (e) => {
+    e.preventDefault();
+    browser.runtime.openOptionsPage();
+  });
 });
+
+// Toggle keyboard shortcuts panel
+function toggleShortcutsPanel() {
+  const panel = document.getElementById("shortcuts-panel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+// Debounce function to limit frequent calls
+function debounce(func, wait) {
+  let timeout;
+  return function () {
+    const context = this;
+    const args = arguments;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func.apply(context, args);
+    }, wait);
+  };
+}
+
+// Setup keyboard navigation
+function setupKeyboardNavigation() {
+  document.addEventListener("keydown", (event) => {
+    // Focus search when pressing '/'
+    if (
+      event.key === "/" &&
+      document.activeElement !== document.getElementById("search-groups")
+    ) {
+      event.preventDefault();
+      document.getElementById("search-groups").focus();
+    }
+
+    // ESC key closes any active dialogs
+    if (event.key === "Escape") {
+      const overlays = document.querySelectorAll(".overlay, .preview-overlay");
+      if (overlays.length > 0) {
+        overlays.forEach((overlay) => {
+          document.body.removeChild(overlay);
+        });
+      }
+    }
+
+    // Enable arrow key navigation for groups
+    if (["ArrowUp", "ArrowDown", "Enter"].includes(event.key)) {
+      const groups = document.querySelectorAll(
+        '.group-item:not([style*="display: none"])',
+      );
+      if (groups.length === 0) return;
+
+      // Find currently focused group
+      const focusedGroup = document.querySelector(".group-item.focused");
+      let newFocusIndex = 0;
+
+      if (focusedGroup) {
+        const currentIndex = Array.from(groups).indexOf(focusedGroup);
+
+        if (event.key === "ArrowUp") {
+          newFocusIndex = (currentIndex - 1 + groups.length) % groups.length;
+        } else if (event.key === "ArrowDown") {
+          newFocusIndex = (currentIndex + 1) % groups.length;
+        } else if (event.key === "Enter") {
+          // Open the focused group
+          const groupId = focusedGroup.dataset.groupId;
+          openGroup(groupId);
+          return;
+        }
+      }
+
+      // Set focus on the new group
+      groups.forEach((g) => g.classList.remove("focused"));
+      groups[newFocusIndex].classList.add("focused");
+      groups[newFocusIndex].scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  });
+}
 
 // Load and display tab groups
 function loadGroups() {
@@ -40,11 +146,24 @@ function loadGroups() {
       const groups = response.groups || {};
       const groupsList = document.getElementById("groups-list");
       const addToGroupSelect = document.getElementById("add-to-group");
+      const mergeGroupsSelect = document.getElementById("merge-source-group");
+      const mergeTargetSelect = document.getElementById("merge-target-group");
 
       // Clear previous lists
       groupsList.innerHTML = "";
       addToGroupSelect.innerHTML =
         '<option value="">Select a group...</option>';
+
+      // Reset merge selects if they exist
+      if (mergeGroupsSelect) {
+        mergeGroupsSelect.innerHTML =
+          '<option value="">Select source group...</option>';
+      }
+
+      if (mergeTargetSelect) {
+        mergeTargetSelect.innerHTML =
+          '<option value="">Select target group...</option>';
+      }
 
       if (Object.keys(groups).length === 0) {
         groupsList.innerHTML =
@@ -70,6 +189,17 @@ function loadGroups() {
         option.value = groupId;
         option.textContent = `${group.name} (${group.tabs.length} tabs)`;
         addToGroupSelect.appendChild(option);
+
+        // Add to merge dropdowns if they exist
+        if (mergeGroupsSelect) {
+          const sourceOption = option.cloneNode(true);
+          mergeGroupsSelect.appendChild(sourceOption);
+        }
+
+        if (mergeTargetSelect) {
+          const targetOption = option.cloneNode(true);
+          mergeTargetSelect.appendChild(targetOption);
+        }
       }
     })
     .catch((error) => {
@@ -85,10 +215,21 @@ function createGroupElement(groupId, group, container) {
   groupElement.className = "group-item";
   groupElement.dataset.groupId = groupId;
   groupElement.dataset.groupName = group.name.toLowerCase();
+  groupElement.tabIndex = 0; // Make focusable for keyboard navigation
 
   // Auto-grouped indicator
   if (group.auto) {
     groupElement.classList.add("auto-group");
+  }
+
+  // Pattern grouped indicator
+  if (group.pattern) {
+    groupElement.classList.add("pattern-group");
+  }
+
+  // Restored group indicator
+  if (group.restored) {
+    groupElement.classList.add("restored-group");
   }
 
   // Create header with name and actions
@@ -96,7 +237,12 @@ function createGroupElement(groupId, group, container) {
   header.className = "group-header";
 
   const name = document.createElement("h3");
-  name.innerHTML = `<i class="fas fa-folder"></i> ${group.name}`;
+  let iconClass = "fa-folder";
+  if (group.auto) iconClass = "fa-layer-group";
+  if (group.pattern) iconClass = "fa-filter";
+  if (group.restored) iconClass = "fa-trash-restore";
+
+  name.innerHTML = `<i class="fas ${iconClass}"></i> ${group.name}`;
 
   const tabCount = document.createElement("span");
   tabCount.className = "tab-count";
@@ -119,7 +265,7 @@ function createGroupElement(groupId, group, container) {
   deleteButton.dataset.groupId = groupId;
   deleteButton.addEventListener("click", () => deleteGroup(groupId));
 
-  // Optional: Add edit name button
+  // Edit name button
   const editButton = document.createElement("button");
   editButton.className = "edit-group-btn";
   editButton.innerHTML = '<i class="fas fa-edit"></i>';
@@ -140,16 +286,37 @@ function createGroupElement(groupId, group, container) {
   tabList.className = "tab-list";
   tabList.dataset.groupId = groupId;
 
-  for (let i = 0; i < group.tabs.length; i++) {
-    const tab = group.tabs[i];
-    const tabElement = createTabElement(tab, groupId, i);
-    tabList.appendChild(tabElement);
-  }
+  // Get max tabs display setting
+  browser.storage.sync.get("maxTabsDisplayed").then((settings) => {
+    const maxTabs = settings.maxTabsDisplayed || 15;
+    const displayTabs = group.tabs.slice(0, maxTabs);
+
+    for (let i = 0; i < displayTabs.length; i++) {
+      const tab = displayTabs[i];
+      const tabElement = createTabElement(tab, groupId, i);
+      tabList.appendChild(tabElement);
+    }
+
+    // Show indicator if there are more tabs
+    if (group.tabs.length > maxTabs) {
+      const moreTabsElement = document.createElement("div");
+      moreTabsElement.className = "more-tabs-indicator";
+      moreTabsElement.textContent = `+${group.tabs.length - maxTabs} more tabs`;
+      tabList.appendChild(moreTabsElement);
+    }
+  });
 
   // Assemble group element
   groupElement.appendChild(header);
   groupElement.appendChild(tabList);
   container.appendChild(groupElement);
+
+  // Add event listener for keyboard activation
+  groupElement.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      openGroup(groupId);
+    }
+  });
 }
 
 // Create a tab element
@@ -161,7 +328,7 @@ function createTabElement(tab, groupId, tabIndex) {
   tabElement.dataset.url = tab.url;
   tabElement.draggable = true;
 
-  // Tab domain badge (new)
+  // Tab domain badge
   const domainBadge = document.createElement("span");
   domainBadge.className = "domain-badge";
   if (tab.domain) {
@@ -305,7 +472,7 @@ function handleGroupListDrop(e) {
 }
 
 // Handle end of drag operation
-function handleDragEnd(e) {
+function handleDragEnd(_) {
   // Remove drag styling from all elements
   document.querySelectorAll(".dragging").forEach((el) => {
     el.classList.remove("dragging");
@@ -353,11 +520,11 @@ function showTabPreview(tab) {
   const previewContent = document.createElement("div");
   previewContent.className = "preview-content";
   previewContent.innerHTML = `
-    <div class="preview-placeholder">
-      <i class="fas fa-globe fa-3x"></i>
-      <p>${tab.domain || "Website"}</p>
-    </div>
-  `;
+   <div class="preview-placeholder">
+     <i class="fas fa-globe fa-3x"></i>
+     <p>${tab.domain || "Website"}</p>
+   </div>
+ `;
 
   // Action buttons
   const previewActions = document.createElement("div");
@@ -419,6 +586,240 @@ function filterGroups() {
     // Show/hide group based on search
     group.style.display = groupVisible ? "" : "none";
   });
+}
+
+// Group tabs by pattern
+function groupByPattern() {
+  const pattern = prompt("Enter a URL pattern (regex):", "");
+  if (!pattern) return;
+
+  const groupName = prompt("Enter a name for this group:", "");
+
+  browser.runtime
+    .sendMessage({
+      action: "groupTabsByPattern",
+      pattern: pattern,
+      groupName: groupName,
+    })
+    .then((response) => {
+      if (response && response.success) {
+        loadGroups();
+        showNotification("Pattern group created successfully", "success");
+      } else {
+        showNotification("No tabs matched the pattern", "error");
+      }
+    })
+    .catch((error) => {
+      console.error("Error creating pattern group:", error);
+      showNotification("Error creating pattern group", "error");
+    });
+}
+
+// Show merge groups dialog
+function mergeGroupsDialog() {
+  browser.runtime.sendMessage({ action: "getGroups" }).then((response) => {
+    if (
+      !response ||
+      !response.groups ||
+      Object.keys(response.groups).length < 2
+    ) {
+      showNotification("Need at least 2 groups to merge", "error");
+      return;
+    }
+
+    // Create dialog
+    const overlay = document.createElement("div");
+    overlay.className = "overlay";
+
+    const dialog = document.createElement("div");
+    dialog.className = "dialog merge-dialog";
+
+    const header = document.createElement("h3");
+    header.textContent = "Merge Groups";
+
+    const form = document.createElement("div");
+    form.className = "merge-form";
+
+    // Source group select
+    const sourceLabel = document.createElement("label");
+    sourceLabel.textContent = "Source Group (will be removed):";
+    sourceLabel.htmlFor = "merge-source-group";
+
+    const sourceSelect = document.createElement("select");
+    sourceSelect.id = "merge-source-group";
+
+    // Target group select
+    const targetLabel = document.createElement("label");
+    targetLabel.textContent = "Target Group (will receive tabs):";
+    targetLabel.htmlFor = "merge-target-group";
+
+    const targetSelect = document.createElement("select");
+    targetSelect.id = "merge-target-group";
+
+    // Populate select options
+    const groups = response.groups;
+    Object.keys(groups).forEach((groupId) => {
+      const group = groups[groupId];
+
+      const sourceOption = document.createElement("option");
+      sourceOption.value = groupId;
+      sourceOption.textContent = `${group.name} (${group.tabs.length} tabs)`;
+      sourceSelect.appendChild(sourceOption);
+
+      const targetOption = document.createElement("option");
+      targetOption.value = groupId;
+      targetOption.textContent = `${group.name} (${group.tabs.length} tabs)`;
+      targetSelect.appendChild(targetOption);
+    });
+
+    // Buttons
+    const buttons = document.createElement("div");
+    buttons.className = "dialog-buttons";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "secondary-btn";
+    cancelButton.textContent = "Cancel";
+    cancelButton.addEventListener("click", () => {
+      document.body.removeChild(overlay);
+    });
+
+    const mergeButton = document.createElement("button");
+    mergeButton.className = "primary-btn";
+    mergeButton.textContent = "Merge";
+    mergeButton.addEventListener("click", () => {
+      const sourceGroupId = sourceSelect.value;
+      const targetGroupId = targetSelect.value;
+
+      if (sourceGroupId === targetGroupId) {
+        showNotification("Source and target groups must be different", "error");
+        return;
+      }
+
+      // Send merge request
+      browser.runtime
+        .sendMessage({
+          action: "mergeGroups",
+          sourceGroupId,
+          targetGroupId,
+        })
+        .then((response) => {
+          if (response && response.success) {
+            document.body.removeChild(overlay);
+            loadGroups();
+            showNotification("Groups merged successfully", "success");
+          }
+        })
+        .catch((error) => {
+          console.error("Error merging groups:", error);
+          showNotification("Error merging groups", "error");
+        });
+    });
+
+    buttons.appendChild(cancelButton);
+    buttons.appendChild(mergeButton);
+
+    // Assemble form
+    form.appendChild(sourceLabel);
+    form.appendChild(sourceSelect);
+    form.appendChild(targetLabel);
+    form.appendChild(targetSelect);
+
+    // Assemble dialog
+    dialog.appendChild(header);
+    dialog.appendChild(form);
+    dialog.appendChild(buttons);
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+  });
+}
+
+// Show recently deleted groups
+function showRecentlyDeleted() {
+  browser.runtime
+    .sendMessage({ action: "getRecentlyDeletedGroups" })
+    .then((response) => {
+      if (
+        !response ||
+        !response.recentlyDeleted ||
+        response.recentlyDeleted.length === 0
+      ) {
+        showNotification("No recently deleted groups", "info");
+        return;
+      }
+
+      // Create dialog
+      const overlay = document.createElement("div");
+      overlay.className = "overlay";
+
+      const dialog = document.createElement("div");
+      dialog.className = "dialog restore-dialog";
+
+      const header = document.createElement("h3");
+      header.textContent = "Recently Deleted Groups";
+
+      const list = document.createElement("div");
+      list.className = "deleted-groups-list";
+
+      // Add each deleted group
+      response.recentlyDeleted.forEach((item, index) => {
+        const group = item.group;
+        const deleteTime = new Date(item.deletedAt).toLocaleString();
+
+        const groupItem = document.createElement("div");
+        groupItem.className = "deleted-group-item";
+
+        const groupInfo = document.createElement("div");
+        groupInfo.className = "deleted-group-info";
+        groupInfo.innerHTML = `
+         <strong>${group.name}</strong> (${group.tabs.length} tabs)<br>
+         <span class="delete-time">Deleted: ${deleteTime}</span>
+       `;
+
+        const restoreButton = document.createElement("button");
+        restoreButton.className = "restore-btn";
+        restoreButton.innerHTML =
+          '<i class="fas fa-trash-restore"></i> Restore';
+        restoreButton.addEventListener("click", () => {
+          browser.runtime
+            .sendMessage({
+              action: "restoreRecentlyDeleted",
+              index: index,
+            })
+            .then((response) => {
+              if (response && response.success) {
+                document.body.removeChild(overlay);
+                loadGroups();
+                showNotification("Group restored successfully", "success");
+              }
+            })
+            .catch((error) => {
+              console.error("Error restoring group:", error);
+              showNotification("Error restoring group", "error");
+            });
+        });
+
+        groupItem.appendChild(groupInfo);
+        groupItem.appendChild(restoreButton);
+        list.appendChild(groupItem);
+      });
+
+      // Close button
+      const closeButton = document.createElement("button");
+      closeButton.className = "primary-btn";
+      closeButton.textContent = "Close";
+      closeButton.addEventListener("click", () => {
+        document.body.removeChild(overlay);
+      });
+
+      // Assemble dialog
+      dialog.appendChild(header);
+      dialog.appendChild(list);
+      dialog.appendChild(closeButton);
+
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    });
 }
 
 // Save current tabs as a new group
@@ -514,18 +915,17 @@ function renameGroup(groupId, currentName) {
   const newName = prompt("Enter new group name:", currentName);
 
   if (newName && newName.trim() !== "" && newName !== currentName) {
-    browser.storage.sync
-      .get("groups")
-      .then((data) => {
-        if (data.groups && data.groups[groupId]) {
-          const groups = data.groups;
-          groups[groupId].name = newName.trim();
-          return browser.storage.sync.set({ groups });
-        }
+    browser.runtime
+      .sendMessage({
+        action: "renameGroup",
+        groupId: groupId,
+        newName: newName.trim(),
       })
-      .then(() => {
-        loadGroups();
-        showNotification("Group renamed", "success");
+      .then((response) => {
+        if (response && response.success) {
+          loadGroups();
+          showNotification("Group renamed", "success");
+        }
       })
       .catch((error) => {
         console.error("Error renaming group:", error);
@@ -573,7 +973,6 @@ function removeTabFromGroup(groupId, tabIndex) {
       showNotification("Error removing tab from group", "error");
     });
 }
-
 // Export groups to a JSON file
 function exportGroups() {
   browser.runtime
@@ -582,7 +981,6 @@ function exportGroups() {
       if (response && response.success) {
         const blob = new Blob([response.data], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-
         const downloadLink = document.createElement("a");
         downloadLink.href = url;
         downloadLink.download =
@@ -608,11 +1006,9 @@ function importGroups() {
   const fileInput = document.createElement("input");
   fileInput.type = "file";
   fileInput.accept = ".json";
-
   fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       const jsonData = event.target.result;
@@ -635,10 +1031,8 @@ function importGroups() {
 
     reader.readAsText(file);
   });
-
   fileInput.click();
 }
-
 // Show notification
 function showNotification(message, type) {
   // Remove existing notifications
@@ -651,14 +1045,12 @@ function showNotification(message, type) {
       }
     }, 300);
   });
-
   // Create notification
   const notification = document.createElement("div");
   notification.className = `notification ${type}`;
   const icon = type === "success" ? "check-circle" : "exclamation-circle";
   notification.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
   document.body.appendChild(notification);
-
   // Remove notification after 2 seconds
   setTimeout(() => {
     notification.classList.add("hide");
@@ -668,4 +1060,36 @@ function showNotification(message, type) {
       }
     }, 300);
   }, 2000);
+}
+
+// Show confirmation dialog
+function showConfirm(message, onConfirm) {
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  const content = document.createElement("div");
+  content.className = "confirm-content";
+  content.innerHTML = `<p>${message}</p>`;
+  const buttons = document.createElement("div");
+  buttons.className = "confirm-buttons";
+  const cancelButton = document.createElement("button");
+  cancelButton.className = "cancel-btn";
+  cancelButton.textContent = "Cancel";
+  cancelButton.addEventListener("click", () => {
+    document.body.removeChild(overlay);
+  });
+  const confirmButton = document.createElement("button");
+  confirmButton.className = "confirm-btn";
+  confirmButton.textContent = "Confirm";
+  confirmButton.addEventListener("click", () => {
+    document.body.removeChild(overlay);
+    onConfirm();
+  });
+  buttons.appendChild(cancelButton);
+  buttons.appendChild(confirmButton);
+  content.appendChild(buttons);
+  dialog.appendChild(content);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
 }

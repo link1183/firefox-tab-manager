@@ -264,10 +264,10 @@ function showNotification(message, isError = false) {
   notification.textContent = message;
 
   // Show notification
-  notification.style.display = "block";
+  notification.classList.add("show");
 
   // Hide after delay
   setTimeout(() => {
-    notification.style.display = "none";
+    notification.classList.remove("show");
   }, 3000);
 }
