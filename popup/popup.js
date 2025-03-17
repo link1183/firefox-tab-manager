@@ -29,47 +29,53 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Load and display tab groups
 function loadGroups() {
-  browser.runtime.sendMessage({ action: "getGroups" }).then((response) => {
-    // Fix: Check if response exists before processing it
-    if (!response) {
-      console.error("Failed to get groups: Response is undefined");
-      return;
-    }
+  browser.runtime
+    .sendMessage({ action: "getGroups" })
+    .then((response) => {
+      if (!response) {
+        console.error("Failed to get groups: Response is undefined");
+        return;
+      }
 
-    const groups = response.groups || {};
-    const groupsList = document.getElementById("groups-list");
-    const addToGroupSelect = document.getElementById("add-to-group");
+      const groups = response.groups || {};
+      const groupsList = document.getElementById("groups-list");
+      const addToGroupSelect = document.getElementById("add-to-group");
 
-    // Clear previous lists
-    groupsList.innerHTML = "";
-    addToGroupSelect.innerHTML = '<option value="">Select a group...</option>';
+      // Clear previous lists
+      groupsList.innerHTML = "";
+      addToGroupSelect.innerHTML =
+        '<option value="">Select a group...</option>';
 
-    if (Object.keys(groups).length === 0) {
-      groupsList.innerHTML =
-        '<div class="empty-message">No groups saved yet</div>';
-      return;
-    }
+      if (Object.keys(groups).length === 0) {
+        groupsList.innerHTML =
+          '<div class="empty-message">No groups saved yet</div>';
+        return;
+      }
 
-    // Sort groups by creation date (newest first)
-    const sortedGroupIds = Object.keys(groups).sort((a, b) => {
-      // If there's a lastAccessed timestamp, use that for sorting instead
-      const aTime = groups[a].lastAccessed || groups[a].created;
-      const bTime = groups[b].lastAccessed || groups[b].created;
-      return bTime - aTime;
+      // Sort groups by creation date (newest first)
+      const sortedGroupIds = Object.keys(groups).sort((a, b) => {
+        // If there's a lastAccessed timestamp, use that for sorting instead
+        const aTime = groups[a].lastAccessed || groups[a].created;
+        const bTime = groups[b].lastAccessed || groups[b].created;
+        return bTime - aTime;
+      });
+
+      // Populate groups list
+      for (const groupId of sortedGroupIds) {
+        const group = groups[groupId];
+        createGroupElement(groupId, group, groupsList);
+
+        // Add to dropdown
+        const option = document.createElement("option");
+        option.value = groupId;
+        option.textContent = `${group.name} (${group.tabs.length} tabs)`;
+        addToGroupSelect.appendChild(option);
+      }
+    })
+    .catch((error) => {
+      console.error("Error loading groups:", error);
+      showNotification("Error loading groups", "error");
     });
-
-    // Populate groups list
-    for (const groupId of sortedGroupIds) {
-      const group = groups[groupId];
-      createGroupElement(groupId, group, groupsList);
-
-      // Add to dropdown
-      const option = document.createElement("option");
-      option.value = groupId;
-      option.textContent = `${group.name} (${group.tabs.length} tabs)`;
-      addToGroupSelect.appendChild(option);
-    }
-  });
 }
 
 // Create a group element
@@ -441,26 +447,35 @@ function saveGroup() {
     return;
   }
 
-  browser.runtime.sendMessage(
-    { action: "saveGroup", groupName },
-    (response) => {
-      if (response.success) {
+  browser.runtime
+    .sendMessage({ action: "saveGroup", groupName })
+    .then((response) => {
+      if (response && response.success) {
         groupNameInput.value = "";
         loadGroups();
         showNotification("Group saved successfully", "success");
       }
-    },
-  );
+    })
+    .catch((error) => {
+      console.error("Error saving group:", error);
+      showNotification("Error saving group", "error");
+    });
 }
 
 // Auto-group tabs by domain
 function autoGroupTabs() {
-  browser.runtime.sendMessage({ action: "autoGroupTabs" }, (response) => {
-    if (response.success) {
-      showNotification("Tabs auto-grouped by domain", "success");
-      loadGroups();
-    }
-  });
+  browser.runtime
+    .sendMessage({ action: "autoGroupTabs" })
+    .then((response) => {
+      if (response && response.success) {
+        showNotification("Tabs auto-grouped by domain", "success");
+        loadGroups();
+      }
+    })
+    .catch((error) => {
+      console.error("Error auto-grouping tabs:", error);
+      showNotification("Error auto-grouping tabs", "error");
+    });
 }
 
 // Open a tab group
@@ -474,33 +489,39 @@ function openGroup(groupId) {
     : "This will replace your current non-pinned tabs. Continue?";
 
   showConfirm(message, () => {
-    browser.runtime.sendMessage(
-      {
+    browser.runtime
+      .sendMessage({
         action: "openGroup",
         groupId,
         openInNewWindow,
-      },
-      (response) => {
-        if (response.success) {
+      })
+      .then((response) => {
+        if (response && response.success) {
           window.close(); // Close the popup
         }
-      },
-    );
+      })
+      .catch((error) => {
+        console.error("Error opening group:", error);
+        showNotification("Error opening group", "error");
+      });
   });
 }
 
 // Delete a tab group
 function deleteGroup(groupId) {
   showConfirm("Are you sure you want to delete this group?", () => {
-    browser.runtime.sendMessage(
-      { action: "deleteGroup", groupId },
-      (response) => {
-        if (response.success) {
+    browser.runtime
+      .sendMessage({ action: "deleteGroup", groupId })
+      .then((response) => {
+        if (response && response.success) {
           loadGroups();
           showNotification("Group deleted", "success");
         }
-      },
-    );
+      })
+      .catch((error) => {
+        console.error("Error deleting group:", error);
+        showNotification("Error deleting group", "error");
+      });
   });
 }
 
@@ -509,16 +530,23 @@ function renameGroup(groupId, currentName) {
   const newName = prompt("Enter new group name:", currentName);
 
   if (newName && newName.trim() !== "" && newName !== currentName) {
-    browser.storage.sync.get("groups", (data) => {
-      if (data.groups && data.groups[groupId]) {
-        const groups = data.groups;
-        groups[groupId].name = newName.trim();
-        browser.storage.sync.set({ groups }, () => {
-          loadGroups();
-          showNotification("Group renamed", "success");
-        });
-      }
-    });
+    browser.storage.local
+      .get("groups")
+      .then((data) => {
+        if (data.groups && data.groups[groupId]) {
+          const groups = data.groups;
+          groups[groupId].name = newName.trim();
+          return browser.storage.local.set({ groups });
+        }
+      })
+      .then(() => {
+        loadGroups();
+        showNotification("Group renamed", "success");
+      })
+      .catch((error) => {
+        console.error("Error renaming group:", error);
+        showNotification("Error renaming group", "error");
+      });
   }
 }
 
@@ -532,49 +560,63 @@ function addTabToGroup() {
     return;
   }
 
-  browser.runtime.sendMessage(
-    { action: "addTabToGroup", groupId },
-    (response) => {
-      if (response.success) {
+  browser.runtime
+    .sendMessage({ action: "addTabToGroup", groupId })
+    .then((response) => {
+      if (response && response.success) {
         loadGroups();
         showNotification("Tab added to group", "success");
       }
-    },
-  );
+    })
+    .catch((error) => {
+      console.error("Error adding tab to group:", error);
+      showNotification("Error adding tab to group", "error");
+    });
 }
 
 // Remove a tab from a group
 function removeTabFromGroup(groupId, tabIndex) {
-  browser.runtime.sendMessage(
-    { action: "removeTabFromGroup", groupId, tabIndex },
-    (response) => {
-      if (response.success) {
+  browser.runtime
+    .sendMessage({ action: "removeTabFromGroup", groupId, tabIndex })
+    .then((response) => {
+      if (response && response.success) {
         loadGroups();
         showNotification("Tab removed from group", "success");
       }
-    },
-  );
+    })
+    .catch((error) => {
+      console.error("Error removing tab from group:", error);
+      showNotification("Error removing tab from group", "error");
+    });
 }
 
 // Export groups to a JSON file
 function exportGroups() {
-  browser.runtime.sendMessage({ action: "exportGroups" }, (response) => {
-    if (response.success) {
-      const blob = new Blob([response.data], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+  browser.runtime
+    .sendMessage({ action: "exportGroups" })
+    .then((response) => {
+      if (response && response.success) {
+        const blob = new Blob([response.data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
 
-      const downloadLink = document.createElement("a");
-      downloadLink.href = url;
-      downloadLink.download =
-        "tab-groups-backup-" + new Date().toISOString().split("T")[0] + ".json";
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download =
+          "tab-groups-backup-" +
+          new Date().toISOString().split("T")[0] +
+          ".json";
 
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
 
-      showNotification("Groups exported successfully", "success");
-    }
-  });
+        showNotification("Groups exported successfully", "success");
+      }
+    })
+    .catch((error) => {
+      console.error("Error exporting groups:", error);
+      showNotification("Error exporting groups", "error");
+    });
 }
 
 // Import groups from a JSON file
@@ -591,17 +633,20 @@ function importGroups() {
     reader.onload = (event) => {
       const jsonData = event.target.result;
 
-      browser.runtime.sendMessage(
-        { action: "importGroups", data: jsonData },
-        (response) => {
-          if (response.success) {
+      browser.runtime
+        .sendMessage({ action: "importGroups", data: jsonData })
+        .then((response) => {
+          if (response && response.success) {
             loadGroups();
             showNotification("Groups imported successfully", "success");
           } else {
             showNotification("Failed to import groups", "error");
           }
-        },
-      );
+        })
+        .catch((error) => {
+          console.error("Error importing groups:", error);
+          showNotification("Error importing groups", "error");
+        });
     };
 
     reader.readAsText(file);

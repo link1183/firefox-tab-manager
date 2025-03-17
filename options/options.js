@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Load saved options from storage
 function loadOptions() {
-  browser.storage.sync.get(
+  browser.storage.local.get(
     {
       // Default values
       defaultOpeningMethod: "current",
@@ -18,7 +18,7 @@ function loadOptions() {
       themeOption: "light",
       showDomainBadges: true,
       maxTabsDisplayed: 15,
-      syncAcrossDevices: true,
+      localAcrossDevices: true,
       autoBackup: false,
       autoBackupFrequency: "weekly",
       suggestAutoGrouping: false,
@@ -45,8 +45,8 @@ function loadOptions() {
         items.showDomainBadges;
       document.getElementById("maxTabsDisplayed").value =
         items.maxTabsDisplayed;
-      document.getElementById("syncAcrossDevices").checked =
-        items.syncAcrossDevices;
+      document.getElementById("localAcrossDevices").checked =
+        items.localAcrossDevices;
       document.getElementById("autoBackup").checked = items.autoBackup;
       document.getElementById("autoBackupFrequency").value =
         items.autoBackupFrequency;
@@ -101,7 +101,7 @@ function saveOption() {
   option[id] = value;
 
   // Save to storage
-  browser.storage.sync.set(option, function () {
+  browser.storage.local.set(option, function () {
     showSavedIndicator();
 
     // Special handling for certain options
@@ -109,21 +109,21 @@ function saveOption() {
       applyTheme(value);
     }
 
-    if (id === "syncAcrossDevices" && !value) {
-      // Warning about disabling sync
+    if (id === "localAcrossDevices" && !value) {
+      // Warning about disabling local
       if (
         confirm(
-          "Disabling sync will keep your groups only on this device. Continue?",
+          "Disabling local will keep your groups only on this device. Continue?",
         )
       ) {
-        // Copy data from sync to local if user confirms
-        browser.storage.sync.get(null, function (items) {
+        // Copy data from local to local if user confirms
+        browser.storage.local.get(null, function (items) {
           browser.storage.local.set(items);
         });
       } else {
         // User cancelled, revert the change
-        document.getElementById("syncAcrossDevices").checked = true;
-        browser.storage.sync.set({ syncAcrossDevices: true });
+        document.getElementById("localAcrossDevices").checked = true;
+        browser.storage.local.set({ localAcrossDevices: true });
       }
     }
   });
@@ -161,8 +161,8 @@ function applyTheme(theme) {
 
 // Export all data
 function exportAllData() {
-  const storageArea = document.getElementById("syncAcrossDevices").checked
-    ? browser.storage.sync
+  const storageArea = document.getElementById("localAcrossDevices").checked
+    ? browser.storage.local
     : browser.storage.local;
 
   storageArea.get(null, function (data) {
@@ -204,9 +204,9 @@ function importData() {
             "This will overwrite your current settings and groups. Continue?",
           )
         ) {
-          const storageArea = document.getElementById("syncAcrossDevices")
+          const storageArea = document.getElementById("localAcrossDevices")
             .checked
-            ? browser.storage.sync
+            ? browser.storage.local
             : browser.storage.local;
 
           storageArea.clear().then(() => {
